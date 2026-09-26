@@ -3,101 +3,185 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FUTURE FANCY STORE- Product List</title>
+    <title>FUTURE FANCY STORE - Product Catalog</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #FAF6F0; margin: 0; padding: 0; }
-        header { background-color: #800020; color: #FFD700; text-align: center; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        header { background-color: #800020; color: #FFD700; text-align: center; padding: 20px; position: relative; }
+        .admin-btn { position: absolute; top: 15px; right: 15px; background: #FFD700; color: #800020; border: none; padding: 8px 14px; border-radius: 5px; font-weight: bold; cursor: pointer; }
+        
         .container { max-width: 1000px; margin: 20px auto; padding: 0 20px; }
         
-        /* Form Styling */
-        .upload-section { background: white; border: 2px dashed #800020; padding: 20px; border-radius: 10px; margin-bottom: 30px; }
+        /* Admin Upload Form (Customers ko nahi dikhega) */
+        .upload-section { display: none; background: white; border: 2px dashed #800020; padding: 20px; border-radius: 10px; margin-bottom: 30px; }
         .upload-section h2 { color: #800020; margin-top: 0; }
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; font-weight: bold; margin-bottom: 5px; }
         .form-group input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
         .btn-add { background-color: #800020; color: white; border: none; padding: 12px 20px; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; }
-        .btn-add:hover { background-color: #5a0017; }
 
-        /* Product Gallery Grid */
+        /* Catalog Grid */
         .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
-        .product-card { background: white; border-radius: 10px; padding: 15px; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.08); }
+        .product-card { background: white; border-radius: 10px; padding: 15px; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.08); position: relative; }
         .product-card img { width: 100%; height: 200px; object-fit: cover; border-radius: 8px; }
         .product-title { font-size: 18px; font-weight: bold; margin: 10px 0 5px; color: #333; }
         .product-price { font-size: 16px; color: #800020; font-weight: bold; margin-bottom: 10px; }
-        .btn-whatsapp { background-color: #25D366; color: white; border: none; padding: 8px 12px; border-radius: 5px; text-decoration: none; display: inline-block; font-size: 14px; }
+        .btn-whatsapp { background-color: #25D366; color: white; border: none; padding: 8px 12px; border-radius: 5px; text-decoration: none; display: inline-block; font-size: 14px; font-weight: bold; }
+        
+        /* Delete Button for Admin */
+        .btn-delete { display: none; background-color: #ff4d4d; color: white; border: none; padding: 6px 12px; border-radius: 5px; margin-top: 10px; cursor: pointer; font-weight: bold; width: 100%; }
     </style>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
 </head>
 <body>
 
     <header>
-        <h1>Meri Artificial Jewellery Dukan</h1>
+        <h1>FUTURE FANCY STORE</h1>
         <p>Aapke Shehar Ki Sabse Khoobsurat Jewellery Collection</p>
+        <button class="admin-btn" onclick="toggleAdmin()">Admin Login</button>
     </header>
 
     <div class="container">
         
-        <!-- Photo Upload & Item List Form -->
-        <div class="upload-section">
-            <h2>Naya Samaan / Photo Add Karein</h2>
+        <!-- Admin Form -->
+        <div class="upload-section" id="adminForm">
+            <h2>Naya Samaan Add Karein (Admin Panel)</h2>
             <div class="form-group">
-                <label>Item Ka Naam (e.g., Kundan Set, Jhumka):</label>
-                <input type="text" id="itemName" placeholder="Item ka naam daalein">
+                <label>Item Ka Naam:</label>
+                <input type="text" id="itemName" placeholder="e.g., Kundan Set, Jhumka">
             </div>
             <div class="form-group">
                 <label>Kimat (Price in ₹):</label>
                 <input type="number" id="itemPrice" placeholder="500">
             </div>
             <div class="form-group">
-                <label>Photo Upload Karein:</label>
+                <label>Photo Select Karein:</label>
                 <input type="file" id="itemImage" accept="image/*">
             </div>
-            <button class="btn-add" onclick="addProduct()">List Mein Add Karein</button>
+            <button class="btn-add" onclick="uploadProduct()">Save Karein</button>
         </div>
 
-        <!-- Products List Display -->
-        <h2 style="color: #800020;">Hamari Samaan Ki List (Catalog)</h2>
+        <!-- Catalog Display -->
+        <h2 style="color: #800020; text-align: center;">Hamari Jewellery Collection</h2>
         <div class="product-grid" id="productList">
-            <!-- Upload kiye gaye items yahan dikhenge -->
+            <p style="text-align: center; width: 100%;">Catalog load ho raha hai...</p>
         </div>
 
     </div>
 
     <script>
-        function addProduct() {
+        // Set Credentials
+        const firebaseConfig = {
+            apiKey: "AIzaSyAnEIEDqowFXqGbEZmumA-ETuGq",
+            authDomain: "future-fancy-store.firebaseapp.com",
+            projectId: "future-fancy-store",
+            storageBucket: "future-fancy-store.firebasestorage.app",
+            messagingSenderId: "19065532759",
+            appId: "1:19065532759:web:9069286e8c68d90"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+
+        const myPhoneNumber = "918305068249"; // Line 87: Apna WhatsApp Number daalein
+        const adminPassword = "1234"; // Secret Admin Password
+        let isAdminLoggedIn = false;
+
+        // Admin Login Toggle
+        function toggleAdmin() {
+            let pwd = prompt("Admin Password daalein:");
+            if (pwd === adminPassword) {
+                isAdminLoggedIn = true;
+                document.getElementById('adminForm').style.display = 'block';
+                document.querySelectorAll('.btn-delete').forEach(btn => btn.style.display = 'block');
+                alert("Welcome Admin! Ab aap items upload aur delete kar sakte hain.");
+            } else {
+                alert("Galat Password!");
+            }
+        }
+
+        // Upload Product to Firebase
+        function uploadProduct() {
             var name = document.getElementById('itemName').value;
             var price = document.getElementById('itemPrice').value;
             var imageInput = document.getElementById('itemImage');
 
             if (name === '' || price === '' || imageInput.files.length === 0) {
-                alert('Kripya saari jankari daalein aur photo select karein!');
+                alert('Kripya saari information daalein aur photo select karein!');
                 return;
             }
 
-            var reader = new FileReader();
-            reader.onload = function (e) {
-                var grid = document.getElementById('productList');
-                
+            var file = imageInput.files[0];
+            var fileName = Date.now() + '_' + file.name;
+            var storageRef = storage.ref('jewellery_photos/' + fileName);
+
+            alert('Uploading... Kripya thoda intezar karein.');
+
+            storageRef.put(file).then((snapshot) => {
+                snapshot.ref.getDownloadURL().then((downloadURL) => {
+                    db.collection("products").add({
+                        name: name,
+                        price: price,
+                        imageUrl: downloadURL,
+                        imageStoragePath: 'jewellery_photos/' + fileName,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    }).then(() => {
+                        alert('Item Successfully Save Ho Gaya!');
+                        document.getElementById('itemName').value = '';
+                        document.getElementById('itemPrice').value = '';
+                        imageInput.value = '';
+                    });
+                });
+            }).catch((error) => {
+                alert('Upload fail: ' + error.message);
+            });
+        }
+
+        // Delete Product
+        function deleteProduct(docId, storagePath) {
+            if (confirm("Kya aap sach mein is item ko delete karna chahte hain?")) {
+                storage.ref(storagePath).delete().then(() => {
+                    db.collection("products").doc(docId).delete().then(() => {
+                        alert("Item website se delete ho gaya hai!");
+                    });
+                }).catch((error) => {
+                    db.collection("products").doc(docId).delete();
+                });
+            }
+        }
+
+        // Read Items Realtime
+        db.collection("products").orderBy("timestamp", "desc").onSnapshot((snapshot) => {
+            var grid = document.getElementById('productList');
+            grid.innerHTML = '';
+
+            if (snapshot.empty) {
+                grid.innerHTML = '<p style="text-align: center; width: 100%;">Abhi koi item add nahi hai.</p>';
+                return;
+            }
+
+            snapshot.forEach((doc) => {
+                var data = doc.data();
+                var docId = doc.id;
                 var card = document.createElement('div');
                 card.className = 'product-card';
                 
+                var deleteBtnDisplay = isAdminLoggedIn ? 'block' : 'none';
+
                 card.innerHTML = `
-                    <img src="${e.target.result}" alt="${name}">
-                    <div class="product-title">${name}</div>
-                    <div class="product-price">₹${price}</div>
-                    <a href="https://wa.me/918305068249?text=Mujhe%20${encodeURIComponent(name)}%20khareedna%20hai" target="_blank" class="btn-whatsapp">WhatsApp Par Order Karein</a>
+                    <img src="${data.imageUrl}" alt="${data.name}">
+                    <div class="product-title">${data.name}</div>
+                    <div class="product-price">₹${data.price}</div>
+                    <a href="https://wa.me/${myPhoneNumber}?text=Namaste!%20Mujhe%20aapki%20website%20se%20${encodeURIComponent(data.name)}%20(Price:%20₹${data.price})%20order%20karna%20hai." target="_blank" class="btn-whatsapp">WhatsApp Par Order Karein</a>
+                    <button class="btn-delete" style="display: ${deleteBtnDisplay};" onclick="deleteProduct('${docId}', '${data.imageStoragePath}')">🗑️ Delete Item</button>
                 `;
-
                 grid.appendChild(card);
-
-                // Clear input fields
-                document.getElementById('itemName').value = '';
-                document.getElementById('itemPrice').value = '';
-                imageInput.value = '';
-            };
-
-            reader.readAsDataURL(imageInput.files[0]);
-        }
+            });
+        });
     </script>
-
 </body>
 </html>
